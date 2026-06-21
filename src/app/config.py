@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from typing import Optional
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     # Cache Configuration (Redis)
     REDIS_HOST: str = Field(default="localhost")
     REDIS_PORT: int = Field(default=6379)
+    REDIS_URL: Optional[str] = Field(default=None)
 
     # Security / Authentication
     JWT_SECRET: str = Field(default="super_secret_logina_key_change_me_in_production")

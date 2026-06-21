@@ -37,8 +37,9 @@ async def init_databases():
     )
     
     # 2. Khởi tạo Redis Cache client
+    redis_url = settings.REDIS_URL or f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
     redis_client = aioredis.from_url(
-        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
+        redis_url,
         encoding="utf-8",
         decode_responses=True
     )
