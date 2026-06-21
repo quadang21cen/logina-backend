@@ -2,8 +2,8 @@ import sys
 import os
 import asyncio
 import argparse
+import bcrypt
 from sqlmodel import SQLModel
-from passlib.context import CryptContext
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 
@@ -14,10 +14,8 @@ from app.config import settings
 from app.api.deps import postgres_engine, async_session_maker
 from app.models.sql_models import User, UserRole, Class, ClassStudentLink, QuestRun
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 async def init_postgres():
     print("\n--- INITIALIZING POSTGRESQL (Neon.tech) ---")
@@ -87,7 +85,11 @@ async def init_postgres():
 async def init_mongodb():
     print("\n--- INITIALIZING MONGODB (MongoDB Atlas) ---")
     print(f"Connecting to URI: {settings.MONGO_URI.split('@')[-1]} (Credentials hidden)")
-    client = AsyncIOMotorClient(settings.MONGO_URI)
+    try:
+        import certifi
+        client = AsyncIOMotorClient(settings.MONGO_URI, tlsCAFile=certifi.where())
+    except ImportError:
+        client = AsyncIOMotorClient(settings.MONGO_URI)
     db = client[settings.MONGO_DB]
     
     # Tạo các collection và index mẫu
