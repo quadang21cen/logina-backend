@@ -195,3 +195,74 @@ async def publish_quest(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to publish quest to MongoDB: {str(e)}"
         )
+
+@router.get("/library", dependencies=[teacher_required])
+async def get_library(current_user: User = Depends(get_current_user)):
+    """Lấy danh sách các Quest do giáo viên này sở hữu trong MongoDB."""
+    try:
+        quests = await Quest.find(Quest.creator_id == current_user.id).to_list()
+        return quests
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch library: {str(e)}"
+        )
+
+@router.get("/marketplace")
+async def get_marketplace():
+    """Lấy danh sách các Quest đã xuất bản công khai lên Chợ chung (Marketplace)."""
+    try:
+        quests = await Quest.find(Quest.is_published == True).to_list()
+        return quests
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch marketplace: {str(e)}"
+        )
+
+@router.post("/import/{quest_id}", dependencies=[teacher_required])
+async def import_quest(
+    quest_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Sao chép một Quest công khai từ Marketplace về thư viện cá nhân dưới dạng nháp."""
+    from bson import ObjectId
+    try:
+        if not ObjectId.is_valid(quest_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid Quest ID format: {quest_id}"
+            )
+        
+        quest_to_import = await Quest.get(ObjectId(quest_id))
+        if not quest_to_import:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quest to import not found in MongoDB"
+            )
+            
+        # Nhân bản Quest
+        imported_quest = Quest(
+            title=f"{quest_to_import.title} (Imported)",
+            description=quest_to_import.description,
+            creator_id=current_user.id,
+            is_published=False,  # Lưu thành nháp (Draft)
+            knowledge_pack=quest_to_import.knowledge_pack,
+            role_card=quest_to_import.role_card,
+            scenario_nodes=quest_to_import.scenario_nodes,
+            rules=quest_to_import.rules
+        )
+        await imported_quest.insert()
+        
+        return {
+            "status": "success",
+            "message": "Quest successfully imported to your library",
+            "quest_id": str(imported_quest.id)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import quest: {str(e)}"
+        )
